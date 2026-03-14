@@ -81,7 +81,7 @@
                                 echo " <span class='reply-to-text'> Replying to @" . htmlspecialchars($parent_name) . "</span>";
                             }
 
-							echo ": " . htmlspecialchars($post['content']);
+							echo "<p class='message-text'>" . htmlspecialchars($post['content']) . "</p>";
                             
                             echo "<div class='meta'>Posted on: " . $post['created_at'];
                             
