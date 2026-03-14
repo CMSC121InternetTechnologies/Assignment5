@@ -12,6 +12,7 @@ CREATE TABLE users (
 -- Create posts table
 CREATE TABLE posts (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    parent_id INT NULL DEFAULT NULL,
     user_id INT NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
