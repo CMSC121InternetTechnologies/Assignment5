@@ -34,11 +34,14 @@
 
         <h1>Freedom Board</h1>
 
-        <?php if (isset($_SESSION['user_id'])): ?>
+       <?php if (isset($_SESSION['user_id'])): ?>
         <form action="post_message.php" method="POST">
+            <input type="hidden" name="current_page" value="<?php echo $page; ?>">
             <textarea name="message" placeholder="What's on your mind?" required></textarea>
             <button type="submit">Post Message</button>
         </form>
+
+
         <?php else: ?>
         <div style="background: #e9ecef; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
             <p>Please <a href="login.php">Login</a> or <a href="register.php">Register</a> to post a message.</p>
@@ -53,6 +56,9 @@
             // Limit to 10 posts per page
             $posts_per_page = 10;
             $page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+
+            $page = max(1, $page);
+
             $offset = ($page - 1) * $posts_per_page;
 
             // Count only top-level posts to determine the total number of pages
@@ -103,11 +109,13 @@
 
                 // Recursive function to display comments and their nested replies
                 function display_comments($posts_by_parent, $author_map, $parent_id = 0, $level = 0) {
+                    global $page;
                     if (isset($posts_by_parent[$parent_id])) {
                         $current_posts = $posts_by_parent[$parent_id];
                         
                         foreach ($current_posts as $post) {
-                            $margin = $level * 30; // Indent based on depth level
+                           
+                    $margin = min($level * 30, 210); 
                             
                             echo "<div class='post thread-post' style='margin-left: {$margin}px;'>";
                             echo "<strong>" . htmlspecialchars($post['username']) . "</strong>" ;
@@ -136,6 +144,7 @@
                             if (isset($_SESSION['user_id'])) {
                                 echo "<form action='post_message.php' method='POST' class='reply-form' id='reply-form-" . $post['id'] . "'>";
                                 echo "<input type='hidden' name='parent_id' value='" . $post['id'] . "'>";
+                                echo "<input type='hidden' name='current_page' value='" . $page . "'>";
                                 echo "<input type='text' id='reply-box' name='message' placeholder='Reply to " . htmlspecialchars($post['username']) . "...' required>";
                                 echo "<button type='submit'>Reply</button>";
                                 echo "</form>";
