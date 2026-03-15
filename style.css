@@ -72,3 +72,51 @@ textarea[name="message"]{
     box-sizing: border-box;
     margin-bottom: 10px;
 }
+
+.thread-post {
+    border-left: 3px solid #007bff;
+    padding-left: 15px;
+    margin-bottom: 15px;
+    background-color: #f8f9fa;
+    padding: 10px 10px 10px 15px;
+    border-radius: 4px;
+}
+
+
+.reply-form {
+    display: none;
+    margin-top: 10px;
+    gap: 5px;
+}
+
+.reply-btn {
+    color: #007bff;
+    cursor: pointer;
+    text-decoration: underline;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+}
+
+#reply-box{
+    height: 45.2px;
+    margin: 0%;
+}
+
+.reply-to-text {
+    font-size: 0.8em;
+    color: #888;
+    font-style: italic;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+.message-text {
+    margin-top: 5px;
+    margin-bottom: 10px;
+    line-height: 1.5;
+    overflow-wrap: break-word;
+    word-wrap: break-word; 
+    overflow-x: hidden;
+}
