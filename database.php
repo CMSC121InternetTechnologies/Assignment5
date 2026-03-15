@@ -7,8 +7,8 @@
 	
 	$host = 'localhost';
 	$dbname = 'freedomboard_db';
-	$username = 'schneidelstrom';			// Change to actual username
-	$password = 'password';	// Change to actual password
+	$username = 'root';	// Change to actual username
+	$password = '';	// Change to actual password
 
 	try {
 	    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);	// Create PDO instance and set the character set to utf8
