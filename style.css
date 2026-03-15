@@ -1,3 +1,8 @@
+/*
+ * FREEDOM BOARD STYLES
+ * Basic styling for readability and structuring nested threads
+ */
+
 body { 
     font-family: sans-serif; 
     max-width: 600px; 
@@ -14,11 +19,13 @@ body {
     display: flex;
     justify-content: space-between;
 }
+
 .nav a {
     color: #fff;
     text-decoration: none;
     margin-right: 15px;
 }
+
 .nav a:hover {
     text-decoration: underline;
 }
@@ -81,7 +88,6 @@ textarea[name="message"]{
     padding: 10px 10px 10px 15px;
     border-radius: 4px;
 }
-
 
 .reply-form {
     display: none;

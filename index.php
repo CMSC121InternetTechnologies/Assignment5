@@ -1,4 +1,9 @@
 <?php
+    /*
+     * MAIN FREEDOM BOARD PAGE
+     * Handles the display of the UI, pagination, and the recursive rendering of nested message threads
+     */
+
     session_start();
     require 'database.php';
 ?>
@@ -43,109 +48,127 @@
         <hr>
         <h2>Recent Messages</h2>
         
+        <!-- Pagination Implementation -->
         <?php
-
-            // Max posts per page
+            // Limit to 10 posts per page
             $posts_per_page = 10;
-
             $page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
             $offset = ($page - 1) * $posts_per_page;
 
-            $count_stmt = $pdo->query("SELECT COUNT(*) FROM posts");
-            $total_posts = $count_stmt->fetchColumn();
-            $total_pages = ceil($total_posts / $posts_per_page);
+            // Count only top-level posts to determine the total number of pages
+            $count_stmt = $pdo->query("SELECT COUNT(*) FROM posts WHERE parent_id IS NULL");
+            $total_top_posts = $count_stmt->fetchColumn();
+            $total_pages = ceil($total_top_posts / $posts_per_page);
 
-            $sql = "SELECT posts.id, posts.content, posts.created_at, posts.user_id, posts.parent_id, users.username 
-                FROM posts 
-                JOIN users ON posts.user_id = users.id 
-                ORDER BY posts.created_at ASC
-                LIMIT :limit OFFSET :offset";
-            $stmt = $pdo->prepare($sql);
-            $stmt->bindValue(':limit', $posts_per_page, PDO::PARAM_INT);
-            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-            $stmt->execute();
-            $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            // Fetch top-level posts for current page
+            $sql_top = "SELECT posts.id, posts.content, posts.created_at, posts.user_id, posts.parent_id, users.username 
+                        FROM posts 
+                        JOIN users ON posts.user_id = users.id 
+                        WHERE posts.parent_id IS NULL
+                        ORDER BY posts.created_at DESC
+                        LIMIT :limit OFFSET :offset";
+            $stmt_top = $pdo->prepare($sql_top);
+            $stmt_top->bindValue(':limit', $posts_per_page, PDO::PARAM_INT);
+            $stmt_top->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt_top->execute();
+            $top_posts = $stmt_top->fetchAll(PDO::FETCH_ASSOC);
 
+            // Fetch all replies
+            $sql_replies = "SELECT posts.id, posts.content, posts.created_at, posts.user_id, posts.parent_id, users.username 
+                            FROM posts 
+                            JOIN users ON posts.user_id = users.id 
+                            WHERE posts.parent_id IS NOT NULL
+                            ORDER BY posts.created_at ASC";
+            $replies = $pdo->query($sql_replies)->fetchAll(PDO::FETCH_ASSOC);
+
+            // Combine top posts and replies for processing
+            $posts = array_merge($top_posts, $replies);
+
+            // Nested replies correctness
             if (count($posts) > 0) {
                 $posts_by_parent = [];
-				$author_map = [];
-                $fetched_ids = array_column($posts, 'id');
+                $author_map = [];
+                $fetched_ids = array_column($top_posts, 'id');
 
+                // Group posts by parent_id
                 foreach ($posts as $post) {
                     $parent = $post['parent_id'] ? $post['parent_id'] : 0;
-                    if($parent != 0 && !in_array($parent, $fetched_ids)){
-                        $parent = 0;
-                    }
+                    
+                    // If a reply belongs to a top-level post not on this page, ignore it
+                    if($parent != 0 && !in_array($parent, $fetched_ids) && !isset($author_map[$parent])) continue;
+                    
                     $posts_by_parent[$parent][] = $post;
-
-					$author_map[$post['id']] = $post['username'];
+                    $author_map[$post['id']] = $post['username'];
                 }
 
-                function display_comments($posts_by_parent, $author_map,$parent_id = 0, $level = 0) {
+                // Recursive function to display comments and their nested replies
+                function display_comments($posts_by_parent, $author_map, $parent_id = 0, $level = 0) {
                     if (isset($posts_by_parent[$parent_id])) {
-                        
                         $current_posts = $posts_by_parent[$parent_id];
-                        if ($parent_id == 0) {
-                            $current_posts = array_reverse($current_posts);
-                        }
-
+                        
                         foreach ($current_posts as $post) {
-                            $margin = $level * 30; 
+                            $margin = $level * 30; // Indent based on depth level
                             
                             echo "<div class='post thread-post' style='margin-left: {$margin}px;'>";
                             echo "<strong>" . htmlspecialchars($post['username']) . "</strong>" ;
-							
-							if (!empty($post['parent_id']) && isset($author_map[$post['parent_id']])) {
+                            
+                            // Display "Replying to @username" context
+                            if (!empty($post['parent_id']) && isset($author_map[$post['parent_id']])) {
                                 $parent_name = $author_map[$post['parent_id']];
                                 echo " <span class='reply-to-text'> Replying to @" . htmlspecialchars($parent_name) . "</span>";
                             }
 
-							echo "<p class='message-text'>" . htmlspecialchars($post['content']) . "</p>";
-                            
+                            echo "<p class='message-text'>" . htmlspecialchars($post['content']) . "</p>";
                             echo "<div class='meta'>Posted on: " . $post['created_at'];
                             
-							if (isset($_SESSION['user_id'])) {
-								echo " | <button type='button' class='reply-btn' onclick='toggleReplyForm(" . $post['id'] . ")'>Reply</button>";
-							}
+                            // Reply button for authenticated users
+                            if (isset($_SESSION['user_id'])) {
+                                echo " | <button type='button' class='reply-btn' onclick='toggleReplyForm(" . $post['id'] . ")'>Reply</button>";
+                            }
 
+                            // Delete Button for post owner only
                             if (isset($_SESSION['user_id']) && $_SESSION['user_id'] == $post['user_id']) {
-                                echo " | <a href='delete_post.php?id=" . $post['id'] . "' class='delete-btn' onclick='return confirm(\"Are you sure you want to delete this post?\");'>Delete</a>";
+                                echo " | <a href='delete_post.php?id=" . $post['id'] . "' class='delete-btn' onclick='return confirm(\"Are you sure you want to delete this post? All replies will also be deleted.\");'>Delete</a>";
                             }
                             echo "</div>"; 
 
+                            // Hidden reply form
                             if (isset($_SESSION['user_id'])) {
                                 echo "<form action='post_message.php' method='POST' class='reply-form' id='reply-form-" . $post['id'] . "'>";
                                 echo "<input type='hidden' name='parent_id' value='" . $post['id'] . "'>";
-                                echo "<input type='text' id = 'reply-box' name='message' placeholder='Reply to " . htmlspecialchars($post['username']) . "...' required>";
+                                echo "<input type='text' id='reply-box' name='message' placeholder='Reply to " . htmlspecialchars($post['username']) . "...' required>";
                                 echo "<button type='submit'>Reply</button>";
                                 echo "</form>";
                             }
 
                             echo "</div>"; 
 
-                           display_comments($posts_by_parent, $author_map, $post['id'], $level + 1);
+                            // Recursively call function to check for and display replies to this post
+                            display_comments($posts_by_parent, $author_map, $post['id'], $level + 1);
                         }
                     }
                 }
-
+                
+                // Start rendering from top-level posts (parent_id = 0)
                 display_comments($posts_by_parent, $author_map, 0, 0);
 
             } else {
                 echo "<p>No messages yet. Be the first to post!</p>";
             }
 
+            // Pagination Controls
             if($total_pages > 1){
                 echo "<div class='pagination'>";
-                if($page > 1){
-                    echo "<a class='pagination-btn' href='?page=" . ($page - 1) . "'>&laquo; Previous </a>";
-                }
+                
+                if($page > 1) echo "<a class='pagination-btn' href='?page=" . ($page - 1) . "'>&laquo; Previous </a>";
+                
                 echo "<span class='pagination-info'> Page $page of $total_pages </span>";
-                if($page < $total_pages){
-                    echo "<a class='pagination-btn' href='?page=" . ($page + 1) . "'> Next &raquo;</a>";
-                }
+                
+                if($page < $total_pages) echo "<a class='pagination-btn' href='?page=" . ($page + 1) . "'> Next &raquo;</a>";
+                
                 echo "</div>";
             }
         ?>
-		<script src = "script.js"> </script>
+        <script src="script.js"></script>
     </body>
 </html>
