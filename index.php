@@ -44,19 +44,38 @@
         <h2>Recent Messages</h2>
         
         <?php
+
+            // Max posts per page
+            $posts_per_page = 10;
+
+            $page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
+            $offset = ($page - 1) * $posts_per_page;
+
+            $count_stmt = $pdo->query("SELECT COUNT(*) FROM posts");
+            $total_posts = $count_stmt->fetchColumn();
+            $total_pages = ceil($total_posts / $posts_per_page);
+
             $sql = "SELECT posts.id, posts.content, posts.created_at, posts.user_id, posts.parent_id, users.username 
                 FROM posts 
                 JOIN users ON posts.user_id = users.id 
-                ORDER BY posts.created_at ASC";
-            $stmt = $pdo->query($sql);
+                ORDER BY posts.created_at ASC
+                LIMIT :limit OFFSET :offset";
+            $stmt = $pdo->prepare($sql);
+            $stmt->bindValue(':limit', $posts_per_page, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            $stmt->execute();
             $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if (count($posts) > 0) {
                 $posts_by_parent = [];
 				$author_map = [];
+                $fetched_ids = array_column($posts, 'id');
 
                 foreach ($posts as $post) {
                     $parent = $post['parent_id'] ? $post['parent_id'] : 0;
+                    if($parent != 0 && !in_array($parent, $fetched_ids)){
+                        $parent = 0;
+                    }
                     $posts_by_parent[$parent][] = $post;
 
 					$author_map[$post['id']] = $post['username'];
@@ -113,6 +132,18 @@
 
             } else {
                 echo "<p>No messages yet. Be the first to post!</p>";
+            }
+
+            if($total_pages > 1){
+                echo "<div class='pagination'>";
+                if($page > 1){
+                    echo "<a class='pagination-btn' href='?page=" . ($page - 1) . "'>&laquo; Previous </a>";
+                }
+                echo "<span class='pagination-info'> Page $page of $total_pages </span>";
+                if($page < $total_pages){
+                    echo "<a class='pagination-btn' href='?page=" . ($page + 1) . "'> Next &raquo;</a>";
+                }
+                echo "</div>";
             }
         ?>
 		<script src = "script.js"> </script>
